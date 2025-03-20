@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Socket Monitor</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Socket.IO -->
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+
+    <style>
+        /* Ensure video is responsive */
+        .video-container {
+            position: relative;
+            padding-bottom: 56.25%;
+            /* 16:9 Aspect Ratio */
+            height: 0;
+            overflow: hidden;
+            max-width: 100%;
+            background: #222;
+            border-radius: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        #player {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Fix Skip Button Position */
+        .skip-btn {
+            position: relative;
+            bottom: 10px;
+        }
+    </style>
+</head>
+
+<body class="bg-dark text-light">
+    <div class="container text-center mt-5 pb-5">
+        <h1 class="mb-3">Admin Monitor</h1>
+
+        <!-- Connection Status -->
+        <p id="status" class="lead">Connecting...</p>
+
+        <!-- Reconnect Button -->
+        <button id="reconnectBtn" class="btn btn-warning my-3" style="display:none;">Reconnect</button>
+
+        <!-- Video Player Section -->
+        <div class="video-container mx-auto mt-3">
+            <div id="player" allowfullscreen></div>
+        </div>
+
+        <!-- Skip Button -->
+        <button onclick="playerManager.skip()" class="btn btn-danger mt-5">Skip</button>
+
+        <!-- Song queue -->
+        <div class="mt-5">
+            <h2>Song Queue</h2>
+            <ul id="song-queue" class="list-group">
+                <!-- Song links will be added here -->
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Retrieves the song queue from localStorage.
+         * @returns {Array<string>} The song queue as an array of strings.
+         */
+        const getSongQueue = () => {
+            const queue = localStorage.getItem('song-queue');
+            return queue ? JSON.parse(queue) : [];
+        }
+
+        /**
+         * Saves the song queue to localStorage.
+         * @param {Array<string>} queue - The song queue to save.
+         * @returns {void}
+         */
+        const saveSongQueue = (queue) => {
+            localStorage.setItem('song-queue', JSON.stringify(queue));
+        }
+
+        /**
+         * Adds a song link to the queue and saves it to localStorage.
+         * @param {string} link - The song link to add.
+         * @returns {void}
+         */
+        const addSongLink = (link) => {
+            const queue = getSongQueue();
+            queue.push(link);
+            saveSongQueue(queue);
+            console.log(`Added song link: ${link}`);
+        }
+
+        /**
+         * Removes and returns the first song link from the queue.
+         * @returns {string|null} The removed song link, or null if the queue is empty.
+         */
+        const popSongLink = () => {
+            const queue = getSongQueue();
+            if (queue.length === 0) {
+                console.log('Queue is empty.');
+                return null;
+            }
+            const songLink = queue.shift(); // Remove from front of the queue
+            saveSongQueue(queue);
+            console.log(`Popped song link: ${songLink}`);
+            return songLink;
+        }
+    </script>
+
+    <script src="https://www.youtube.com/iframe_api"></script>
+
+    <script>
+        // Common interface for player
+        // .onEnd()
+
+
+
+        class YouTubePlayer {
+            // constructor for YouTubePlayer
+            constructor(link, onEnd) {
+                // const videoId... transform it in url obj and get v=... its safer
+
+                const parsedUrl = new URL(link);
+                const videoId = parsedUrl.searchParams.get('v');
+
+                const player = new YT.Player('player', {
+                    // Use the no-cookie domain for the player
+                    host: 'https://www.youtube-nocookie.com',
+                    videoId: videoId, // Replace with your valid video ID
+                    playerVars: {
+                        autoplay: 0,
+                        controls: 1,
+                        modestbranding: 1,
+                        rel: 0,
+                        playsinline: 1
+                    },
+                    events: {
+                        onReady: event => {
+                            event.target.playVideo();
+                        },
+                        onStateChange: event => {
+                            if (event.data === YT.PlayerState.ENDED) {
+                                player.destroy();
+                                onEnd();
+                            }
+                        }
+                    }
+                });
+
+                this.player = player;
+            }
+
+            // play()
+            play() {
+                this.player.playVideo();
+            }
+
+            close() {
+                this.player.destroy();
+            }
+        }
+
+        const getSongInfo = (link) => {
+            // get title and thumbnail
+
+            const videoId = new URL(link).searchParams.get("v");
+            const thumbnail = `https://img.youtube.com/vi/${videoId}/default.jpg`;
+
+            return { thumbnail };
+        }
+
+
+        const updateQueueView = () => {
+            const queue = getSongQueue();
+            const queueEl = document.getElementById('song-queue');
+            queueEl.innerHTML = '';
+
+            queue.forEach((link) => {
+                const li = document.createElement('li');
+                const { thumbnail } = getSongInfo(link);
+                li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                li.innerHTML = `
+                    <img src="${thumbnail}" alt="Thumbnail" style="width: 50px; height: 50px; object-fit: cover;">
+                    <span>${link}</span>
+                `;
+                queueEl.appendChild(li);
+            });
+        }
+
+        class PlayerManager {
+            constructor() {
+                this.currentPlayer = null;
+            }
+
+            skip() {
+                if (this.currentPlayer) {
+                    this.currentPlayer.close();
+                    this.currentPlayer = null;
+                }
+
+                const link = popSongLink();
+                updateQueueView();
+                if (link) {
+                    this.currentPlayer = new YouTubePlayer(link, () => {
+                        this.skip();
+                    });
+                }
+            }
+
+            addSong(link) {
+                addSongLink(link);
+                updateQueueView();
+
+                if (!this.currentPlayer) {
+                    this.skip();
+                }
+            }
+        }
+
+        const playerManager = new PlayerManager();
+    </script>
+
+    <script>
+        // Connect to the admin namespace
+        BASE_URL = '10.208.248.121:5000';
+
+        const socket = io(`${BASE_URL}/admin`);
+        const statusEl = document.getElementById('status');
+        const reconnectBtn = document.getElementById('reconnectBtn');
+
+        // Update status on connection
+        socket.on('connect', () => {
+            statusEl.textContent = 'Connected (ID: ' + socket.id + ')';
+            reconnectBtn.style.display = 'none';
+        });
+
+        // Update status on disconnect
+        socket.on('disconnect', () => {
+            statusEl.textContent = 'Disconnected';
+            reconnectBtn.style.display = 'block';
+        });
+
+        // Reconnect when button is clicked
+        reconnectBtn.addEventListener('click', () => {
+            socket.connect();
+        });
+
+        // On new-song event, log the song
+        socket.on('new-song', (song) => {
+            console.log('New song:', song.link);
+            playerManager.addSong(song.link);
+        });
+    </script>
+</body>
+
+</html>

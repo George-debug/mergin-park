@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Song Search</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Font Awesome Icons -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    html,
+    body {
+      height: 100%;
+    }
+
+    .center-container {
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .results {
+      margin-top: 20px;
+    }
+
+    @media (max-width: 576px) {
+      .container {
+        padding: 10px !important;
+      }
+
+      .input-group {
+        width: 100%;
+      }
+    }
+  </style>
+
+
+</head>
+
+<body class="bg-dark text-light">
+  <div class="container mt-5">
+    <h1 class="mb-4 text-center">Song Search</h1>
+    <div class="input-group mb-3 w-100">
+      <input id="search-input" type="text" class="form-control" placeholder="Search for songs..."
+        aria-label="Search for songs...">
+      <button id="search-btn" class="btn btn-primary" type="button">
+        <!-- Magnifying glass icon when not a link -->
+        <i class="fa-solid fa-magnifying-glass"></i>
+      </button>
+    </div>
+    <!-- Dummy hardcoded song results -->
+    <div id="results" class="results d-none w-100">
+      <ul class="list-group">
+        <li class="list-group-item d-flex gap-3">
+          <span class="d-inline-block">
+            <i class="fa-brands fa-youtube fa-lg fa-fw" style="color: #FF0000;"></i>
+          </span>
+          <span> YouTube Song 1 </span>
+          <!-- Right arrow icon for link -->
+          <span class="ms-auto"><i class="fa-solid fa-arrow-right"></i></span>
+        </li>
+        <li class="list-group-item d-flex gap-3 align-items-center">
+          <span class="d-inline-block">
+            <i class="fa-brands fa-youtube fa-lg fa-fw" style="color: #FF0000;"></i>
+          </span>
+          <span> YouTube Song 1 </span>
+          <!-- Right arrow icon for link -->
+          <span class="ms-auto"><i class="fa-solid fa-arrow-right"></i></span>
+        </li>
+        <li class="list-group-item d-flex gap-3">
+          <span class="d-inline-block">
+            <i class="fa-brands fa-spotify fa-lg fa-fw" style="color: #1DB954;"></i>
+          </span>
+          <span> Spotify Song 1 </span>
+          <!-- Right arrow icon for link -->
+          <span class="ms-auto"><i class="fa-solid fa-arrow-right"></i></span>
+        </li>
+        <li class="list-group-item d-flex gap-3">
+          <span class="d-inline-block">
+            <i class="fa-brands fa-spotify fa-lg fa-fw" style="color: #1DB954;"></i>
+          </span>
+          <span> Spotify Song 1 </span>
+          <!-- Right arrow icon for link -->
+          <span class="ms-auto"><i class="fa-solid fa-arrow-right"></i></span>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Bootstrap Bundle JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+
+    const BASE_URL = "";
+
+    const resultsElement = document.getElementById("results");
+    const searchInputElement = document.getElementById("search-input");
+    const searchBtnElement = document.getElementById("search-btn");
+
+    /**
+     * result: [{name: string, link: string}]
+     */
+    class SearchResults {
+      constructor(songList) {
+        this.result = songList;
+      }
+    }
+
+
+    /**
+     * @param {string} songLink - The link to the song to queue.
+     *
+     * @returns {Promise<void>} The search results.
+     */
+    const sendToQueue = async (songLink) => {
+      const QUEUE_URL = "/queue";
+      const data = { link: songLink };
+
+      const response = await fetch(`${BASE_URL}${QUEUE_URL}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to queue song.");
+      }
+    };
+
+    /**
+     * @param {string} searchQuery - The search query to search for.
+     *
+     * @returns {Promise<SearchResults>} The search results.
+     */
+    const searchSongs = async (searchQuery) => {
+      if (searchQuery === "") {
+        return;
+      }
+
+      const SEARCH_URL = "/search";
+
+      return await fetch(`
+        ${BASE_URL}${SEARCH_URL}?q=${searchQuery}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("Failed to search for songs.");
+          }
+          data = response.json()
+          console.log(data)
+          return data;
+        });
+    }
+
+
+    /**
+     * @param {SearchResults} searchResults - The search results to show.
+     */
+    const showResults = (searchResults) => {
+      const unorderedListElement = resultsElement.firstElementChild;
+      unorderedListElement.innerHTML = "";
+
+      searchResults.list.forEach((song) => {
+        const listItem = document.createElement("li");
+        listItem.classList.add("list-group-item", "d-flex", "gap-3");
+
+        const iconSpan = document.createElement("span");
+        iconSpan.classList.add("d-inline-block");
+
+        const songType = song.link.includes("spotify") ? "spotify" : "youtube";
+        const iconClass = songType === "spotify" ? "fa-spotify" : "fa-youtube";
+        const iconColor = songType === "spotify" ? "#1DB954" : "#FF0000";
+        const icon = document.createElement("i");
+        icon.classList.add("fa-brands", iconClass, "fa-lg", "fa-fw");
+        icon.style.color = iconColor;
+
+        iconSpan.appendChild(icon);
+        listItem.appendChild(iconSpan);
+
+        const songNameSpan = document.createElement("span");
+        songNameSpan.textContent = song.name;
+        listItem.appendChild(songNameSpan);
+
+        const rightArrowSpan = document.createElement("span");
+        rightArrowSpan.classList.add("ms-auto");
+
+        const rightArrowIcon = document.createElement("i");
+        rightArrowIcon.classList.add("fa-solid", "fa-arrow-right");
+        rightArrowIcon.onclick = () => {
+          handleSendSong(song.link);
+        };
+
+        rightArrowSpan.appendChild(rightArrowIcon);
+        listItem.appendChild(rightArrowSpan);
+
+        unorderedListElement.appendChild(listItem);
+      });
+
+      resultsElement.classList.remove("d-none");
+    };
+
+
+    const handleSendSong = (songLink) => {
+      const listItem = document.createElement("li");
+      listItem.classList.add("list-group-item");
+      listItem.textContent = "...";
+      resultsElement.firstElementChild.innerHTML = "";
+      resultsElement.firstElementChild.appendChild(listItem);
+
+      sendToQueue(songLink)
+        .then(() => {
+          listItem.textContent = "Song queued successfully!";
+        })
+        .catch((error) => {
+          listItem.textContent = error.message;
+        });
+    };
+
+    const hideResults = () => {
+      resultsElement.classList.add("d-none");
+    };
+
+    const isLinkCurrentlyTyped = () => {
+      const generalLinkExpression = /https?:\/\/[^\s]+/g;
+      const isLink = generalLinkExpression.test(searchInputElement.value);
+
+      return isLink;
+    };
+
+    // When typing in the search input, check if what is typed is link or not, and change the magnifying glass to a arrow
+    searchInputElement.addEventListener("input", () => {
+      const childElement = searchBtnElement.firstElementChild;
+
+      if (isLinkCurrentlyTyped()) {
+        // Change the magnifying glass icon to a right arrow icon
+        childElement.classList.remove("fa-magnifying-glass");
+        childElement.classList.add("fa-arrow-right");
+      } else {
+        // Change the right arrow icon to a magnifying glass icon
+        childElement.classList.remove("fa-arrow-right");
+        childElement.classList.add("fa-magnifying-glass");
+      }
+    });
+
+    const handleSearch = () => {
+      const searchQuery = searchInputElement.value;
+
+      if (isLinkCurrentlyTyped()) {
+        handleSendSong(searchQuery);
+      } else {
+        // Handle search query
+        searchSongs(searchQuery)
+          .then((searchResults) => {
+            showResults(searchResults);
+          })
+          .catch((error) => {
+            const listItem = document.createElement("li");
+            listItem.classList.add("list-group-item");
+            listItem.textContent = error.message;
+            resultsElement.firstElementChild.innerHTML = "";
+            resultsElement.firstElementChild.appendChild(listItem);
+          });
+      }
+    };
+
+    searchInputElement.addEventListener("keyup", (event) => {
+      // When pressing the Enter key, show the dummy song list
+      if (event.key === "Enter") {
+        handleSearch();
+      }
+    });
+
+    // When clicking the magnifying glass button, show the dummy song list
+    searchBtnElement.addEventListener("click", () => {
+      handleSearch();
+    });
+  </script>
+</body>
+
+</html>
