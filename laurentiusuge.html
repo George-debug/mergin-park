@@ -124,6 +124,23 @@
         // Common interface for player
         // .onEnd()
 
+        function getYouTubeVideoId(link) {
+            try {
+                const parsedUrl = new URL(link);
+                const hostname = parsedUrl.hostname;
+                
+                if (hostname.includes('youtu.be')) {
+                    return parsedUrl.pathname.slice(1); // remove leading '/'
+                }
+        
+                if (hostname.includes('youtube.com')) {
+                    return parsedUrl.searchParams.get('v');
+                }
+            } catch (err) {
+                console.error('Invalid URL:', err);
+            }
+            return null;
+        }
 
 
         class YouTubePlayer {
@@ -131,8 +148,7 @@
             constructor(link, onEnd) {
                 // const videoId... transform it in url obj and get v=... its safer
 
-                const parsedUrl = new URL(link);
-                const videoId = parsedUrl.searchParams.get('v');
+                const videoId = getYouTubeVideoId(link);
 
                 const player = new YT.Player('player', {
                     // Use the no-cookie domain for the player
